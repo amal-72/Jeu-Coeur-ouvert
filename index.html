@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CŒUR OUVERT — Survie Cellulaire</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+
+    <!-- TensorFlow.js est conservé pour les anciens fichiers réseau, mais non utilisé par IMMUNO. -->
+    <!-- Ancien circuit conservé sur disque (Car.js, Track.js, Genetic.js, Ray.js, NeuralNetwork.js) mais non chargé. -->
+    <script src="js/globals.js"></script>
+    <script src="js/Vehicle.js"></script>
+    <script src="js/Obstacle.js"></script>
+    <script src="js/ObstacleAvoidance.js"></script>
+    <script src="js/Virus.js"></script>
+    <script src="js/PowerUp.js"></script>
+    <script src="js/Nutrient.js"></script>
+    <script src="js/BacteriaDNA.js"></script>
+    <script src="js/WhiteCell.js"></script>
+    <script src="js/Bacteria.js"></script>
+    <script src="js/BacteriaEvolution.js"></script>
+    <script src="js/SuperVirusNeuroEvolution.js"></script>
+    <script src="js/RedCell.js"></script>
+    <script src="js/LeaderFollowing.js"></script>
+    <script src="js/BioArena.js"></script>
+    <script src="js/HeartIntro.js"></script>
+    <script src="js/main.js"></script>
+</head>
+
+<body>
+    <button id="settingsToggle" class="settings-toggle" type="button" aria-controls="ui" aria-expanded="true">
+        Masquer les paramètres
+    </button>
+    <div id="ui">
+        <h1>CŒUR OUVERT</h1>
+        <p class="subtitle">Survie cellulaire & neuro-évolution</p>
+        <button id="settingsMenuReturnButton" type="button" hidden>Retour au menu</button>
+
+        <!-- 1. PARTIE -->
+        <details class="settings-section" open>
+            <summary>Partie</summary>
+            <div class="stats" aria-live="polite">
+                <div class="stat-row"><span>Score</span><strong id="scoreVal">0</strong></div>
+                <div class="stat-row"><span>Bactéries restantes</span><strong id="bacteriaVal">0</strong></div>
+                <div class="stat-row"><span>Alliés en vie</span><strong id="alliesVal">2</strong></div>
+                <div class="stat-row"><span>Santé des alliés</span><strong id="alliesHealthVal">120 / 120</strong></div>
+                <div class="stat-row"><span>Nutriments actifs</span><strong id="nutrientsVal">0</strong></div>
+                <div class="stat-row"><span>Temps écoulé</span><strong id="elapsedTime">00:00</strong></div>
+                <div class="stat-row"><span>Difficulté active</span><strong id="difficultyVal">Normal</strong></div>
+                <div class="stat-row"><label for="energyMeter">Énergie joueur</label><strong id="energyVal">100%</strong></div>
+                <progress id="energyMeter" max="100" value="100">100%</progress>
+            </div>
+
+            <div class="control-group">
+                <label for="difficultySelect">Difficulté</label>
+                <select id="difficultySelect">
+                    <option value="easy">Facile</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Difficile</option>
+                </select>
+                <p class="control-help">Normal par défaut. Modifie la taille de la vague et la pression virale.</p>
+            </div>
+
+            <p id="objectiveStatus" class="objective-status">Objectif secondaire : collecter 5 nutriments (0/5).</p>
+            <p id="allyCommandStatus" class="ally-command-status" aria-live="polite">Ordre aux alliés : cliquez sur une bactérie pour la désigner comme cible.</p>
+
+            <div class="arena-actions">
+                <button id="pauseButton" type="button" aria-pressed="false">Pause</button>
+                <button id="restartButtonInline" type="button">Redémarrer</button>
+            </div>
+            <p class="control-help">Suspendez la partie à tout moment ou relancez une nouvelle manche.</p>
+        </details>
+
+        <!-- 2. JOUEUR -->
+        <details class="settings-section">
+            <summary>Joueur</summary>
+            <div class="player-controls-card">
+                <p class="control-heading">Commandes actives</p>
+                <p class="control-help"><strong>Déplacement :</strong> ZQSD · WASD · Flèches directionnelles</p>
+                <p class="control-help"><strong>Combat :</strong> Espace = Attaque · E = Bouclier protecteur</p>
+                <p class="control-help"><strong>Tactique :</strong> Clic gauche sur une bactérie = Désigner aux alliés</p>
+            </div>
+
+            <div class="stats combat-stats" aria-live="polite">
+                <div class="stat-row"><span>Attaque</span><strong id="attackCooldownVal">Prête</strong></div>
+                <div class="stat-row"><span>Compétence spéciale (E)</span><strong id="specialStatusVal">Prête</strong></div>
+                <div class="stat-row"><span>Virus prédateur</span><strong id="virusStatusVal">Non détecté</strong></div>
+                <div class="stat-row"><span>Bonus actifs</span><strong id="bonusStatusVal">Aucun</strong></div>
+            </div>
+
+            <div class="control-group">
+                <label for="speedSlider">Vitesse max : <span id="speedVal">4</span></label>
+                <input type="range" id="speedSlider" min="1" max="10" value="4" step="0.5">
+                <p class="control-help">Limite maximale de vitesse de déplacement du globule blanc.</p>
+            </div>
+
+            <div class="control-group">
+                <label for="forceSlider">Force max : <span id="forceVal">0.25</span></label>
+                <input type="range" id="forceSlider" min="0.05" max="1" value="0.25" step="0.05">
+                <p class="control-help">Réactivité vectorielle de braquage et de poussée.</p>
+            </div>
+
+            <div class="control-group">
+                <label for="allyCountSlider">Nombre d'alliés : <span id="allyCountVal">2</span></label>
+                <input type="range" id="allyCountSlider" min="2" max="4" value="2" step="1">
+                <p class="control-help">Escouade de globules blancs alliés autonomes.</p>
+            </div>
+
+            <div class="control-group" hidden>
+                <label for="arriveSlider">Rayon d'arrivée : <span id="arriveVal">100</span></label>
+                <input type="range" id="arriveSlider" min="20" max="250" value="100" step="5">
+                <label for="detectSlider">Rayon de détection : <span id="detectVal">120</span></label>
+                <input type="range" id="detectSlider" min="40" max="260" value="120" step="5">
+            </div>
+        </details>
+
+        <!-- 3. RÉSEAU NEURONAL -->
+        <details class="settings-section">
+            <summary>Réseau neuronal</summary>
+            <div class="network-architecture-card">
+                <p class="architecture-badge">Architecture réelle du SuperVirus</p>
+                <div class="stat-row"><span>Nombre de couches</span><strong>3 couches</strong></div>
+                <div class="stat-row"><span>Couche d'entrée</span><strong>26 entrées sensorielles</strong></div>
+                <div class="stat-row"><span>Couche cachée</span><strong>12 neurones (tanh)</strong></div>
+                <div class="stat-row"><span>Couche de sortie</span><strong>3 sorties motrices</strong></div>
+                <div class="network-layers-detail">
+                    <p>• <strong>Entrées (26) :</strong> 5 rayons × 3 capteurs (obstacles, globules, nutriments) + vitesse $v_x, v_y$ + position $x, y$ + vecteur cible + 4 proximités de paroi.</p>
+                    <p>• <strong>Sorties (3) :</strong> Braquage angulaire ($\tanh$), propulsion ($\sigma$), attraction vers la cible ($\sigma$).</p>
+                    <p>• <strong>Évolution :</strong> Taux de mutation $8\,\%$, perturbation gaussienne $\sigma = 0.18$, sélection par tournoi élitiste.</p>
+                </div>
+                <p class="network-warning">⚠️ <strong>Note d'architecture :</strong> Toute modification du nombre de couches, d'entrées ou de neurones invalide la forme des matrices de poids synaptiques existantes et nécessite de reconstruire le réseau et de réinitialiser la population.</p>
+            </div>
+
+            <div class="control-group debug-row">
+                <label for="neuroToggle">Démarrer l'apprentissage</label>
+                <input type="checkbox" id="neuroToggle">
+            </div>
+            <p class="control-help">Active la simulation de neuro-évolution du SuperVirus dans l'arène.</p>
+
+            <button id="neuroResetButton" type="button">Réinitialiser les poids et la population</button>
+            <p class="control-help">Réinitialise les matrices synaptiques avec de nouveaux poids aléatoires gaussiens.</p>
+
+            <div class="evolution-stats" aria-live="polite">
+                <div class="stat-row"><span>Génération</span><strong id="neuroGeneration">0</strong></div>
+                <div class="stat-row"><span>Meilleure fitness</span><strong id="neuroBestFitness">0</strong></div>
+                <div class="stat-row"><span>Fitness moyenne</span><strong id="neuroAverageFitness">0</strong></div>
+                <p id="neuroStatus">Démonstration en attente.</p>
+            </div>
+
+            <div class="control-group debug-row">
+                <label for="neuroDebugToggle">Afficher capteurs rayons et sorties</label>
+                <input type="checkbox" id="neuroDebugToggle">
+            </div>
+        </details>
+
+        <!-- 4. OPTIONS -->
+        <details class="settings-section">
+            <summary>Options</summary>
+            <div class="control-group debug-row">
+                <label for="soundToggle">Son du jeu</label>
+                <input type="checkbox" id="soundToggle" checked>
+            </div>
+            <div class="control-group">
+                <label for="volumeSlider">Volume : <span id="volumeVal">25%</span></label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="25" step="1">
+            </div>
+            <div class="control-group debug-row">
+                <label for="reducedEffectsToggle">Effets visuels réduits</label>
+                <input type="checkbox" id="reducedEffectsToggle">
+            </div>
+            <p class="control-help">Désactive les micro-particules pour alléger le rendu graphique sur les appareils modestes.</p>
+        </details>
+
+        <!-- 5. MODE PÉDAGOGIQUE & EXPÉRIENCES AVANCÉES -->
+        <details class="settings-section pedagogical-section">
+            <summary>Mode Pédagogique & Expériences avancées</summary>
+            <p class="control-help">Outils et démonstrations du cours de Steering Behaviors (Craig Reynolds) et génétique.</p>
+
+            <details class="pedagogical-sub">
+                <summary>Comportements & Boids</summary>
+                <div class="control-group">
+                    <label for="separationWeight">Poids Séparation : <span id="separationWeightVal">2.5</span></label>
+                    <input type="range" id="separationWeight" min="0" max="3" value="2.5" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="alignmentWeight">Poids Alignement : <span id="alignmentWeightVal">0.6</span></label>
+                    <input type="range" id="alignmentWeight" min="0" max="3" value="0.6" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="cohesionWeight">Poids Cohésion : <span id="cohesionWeightVal">0.4</span></label>
+                    <input type="range" id="cohesionWeight" min="0" max="3" value="0.4" step="0.1">
+                </div>
+
+                <div class="leader-following-block">
+                    <p class="debug-heading">Démonstration Leader Following</p>
+                    <div class="control-group debug-row">
+                        <label for="leaderFollowingToggle">Activer la formation</label>
+                        <input type="checkbox" id="leaderFollowingToggle">
+                    </div>
+                    <div class="control-group">
+                        <label for="followDistanceSlider">Distance au leader : <span id="followDistanceVal">70</span></label>
+                        <input type="range" id="followDistanceSlider" min="40" max="180" value="70" step="5">
+                    </div>
+                    <div class="control-group">
+                        <label for="leaderArriveWeightSlider">Poids Arrive : <span id="leaderArriveWeightVal">1.0</span></label>
+                        <input type="range" id="leaderArriveWeightSlider" min="0" max="3" value="1" step="0.1">
+                    </div>
+                    <div class="control-group">
+                        <label for="leaderSeparationWeightSlider">Poids Séparation : <span id="leaderSeparationWeightVal">3.0</span></label>
+                        <input type="range" id="leaderSeparationWeightSlider" min="0" max="3" value="3" step="0.1">
+                    </div>
+                    <div class="control-group">
+                        <label for="leaderObstacleWeightSlider">Poids Évitement : <span id="leaderObstacleWeightVal">3.0</span></label>
+                        <input type="range" id="leaderObstacleWeightSlider" min="0.5" max="4" value="3" step="0.1">
+                    </div>
+                    <p id="leaderFollowingStatus" class="leader-following-status" aria-live="polite">Démonstration désactivée.</p>
+                </div>
+            </details>
+
+            <details class="pedagogical-sub">
+                <summary>Génétique (ADN & Sélection)</summary>
+                <div class="control-group debug-row">
+                    <label for="evolutionToggle">Démarrer l'expérience ADN</label>
+                    <input type="checkbox" id="evolutionToggle">
+                </div>
+                <button id="evolutionResetButton" type="button">Réinitialiser la population</button>
+                <div class="evolution-stats" aria-live="polite">
+                    <div class="stat-row"><span>Génération</span><strong id="evolutionGeneration">0</strong></div>
+                    <div class="stat-row"><span>Population vivante</span><strong id="evolutionPopulation">0 / 0</strong></div>
+                    <div class="stat-row"><span>Meilleure fitness</span><strong id="evolutionFitness">0</strong></div>
+                    <p id="evolutionGenes">Aucune bactérie sélectionnée</p>
+                </div>
+            </details>
+
+            <details class="pedagogical-sub">
+                <summary>Débogage visuel des algorithmes</summary>
+                <div class="control-group debug-row">
+                    <label for="debugToggle">Vecteurs de force des véhicules</label>
+                    <input type="checkbox" id="debugToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="pathDebugToggle">Path Following (vaisseau rouge)</label>
+                    <input type="checkbox" id="pathDebugToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="flockNeighborsToggle">Voisins Boids détectés</label>
+                    <input type="checkbox" id="flockNeighborsToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="separationToggle">Vecteur Séparation</label>
+                    <input type="checkbox" id="separationToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="alignmentToggle">Vecteur Alignement</label>
+                    <input type="checkbox" id="alignmentToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="cohesionToggle">Vecteur Cohésion</label>
+                    <input type="checkbox" id="cohesionToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="flockWeightsToggle">Pondérations actives</label>
+                    <input type="checkbox" id="flockWeightsToggle">
+                </div>
+                <div class="control-group debug-row">
+                    <label for="leaderFollowingDebugToggle">Repères Leader Following</label>
+                    <input type="checkbox" id="leaderFollowingDebugToggle">
+                </div>
+            </details>
+        </details>
+    </div>
+    <!-- JAUGE D'ÉNERGIE ET HUD PERMANENT DU JOUEUR (HAUT GAUCHE) -->
+    <aside id="gameHudTopLeft" class="game-hud-top-left" aria-label="État de survie du globule blanc">
+        <div class="hud-card hud-energy-card">
+            <div class="hud-player-header">
+                <div class="hud-cell-avatar" aria-hidden="true"></div>
+                <div class="hud-player-info">
+                    <span class="hud-label">GLOBULE BLANC</span>
+                    <strong id="hudEnergyText" class="hud-energy-value">100%</strong>
+                </div>
+            </div>
+            <div class="hud-energy-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                <div id="hudEnergyBar" class="hud-energy-bar-fill" style="width: 100%;"></div>
+            </div>
+            <div class="hud-cooldowns-row">
+                <span id="hudAttackBadge" class="hud-status-badge badge-ready">Attaque : Prête</span>
+                <span id="hudSpecialBadge" class="hud-status-badge badge-ready">Bouclier (E) : Prêt</span>
+            </div>
+        </div>
+
+        <div class="hud-card hud-mission-card">
+            <div class="hud-stat-pill">
+                <span class="hud-stat-name">Bactéries</span>
+                <strong id="hudBacteriaVal" class="hud-stat-num">0</strong>
+            </div>
+            <div class="hud-stat-pill">
+                <span class="hud-stat-name">Virus</span>
+                <strong id="hudVirusVal" class="hud-stat-threat">Non détecté</strong>
+            </div>
+            <div class="hud-stat-pill">
+                <span class="hud-stat-name">Score</span>
+                <strong id="hudScoreVal" class="hud-stat-num">0</strong>
+            </div>
+            <div class="hud-stat-pill">
+                <span class="hud-stat-name">Survie</span>
+                <strong id="hudTimeVal" class="hud-stat-num">00:00</strong>
+            </div>
+        </div>
+    </aside>
+    <div id="canvas-container"></div>
+    <div id="heartIntroOverlay" role="dialog" aria-modal="true" aria-label="Écran d'accueil Cœur Ouvert">
+        <canvas id="heartIntroBgCanvas" class="heart-bg-canvas"></canvas>
+        <div class="heart-vignette" aria-hidden="true"></div>
+
+        <header class="heart-intro-header">
+            <span class="heart-eyebrow">ORGANISME VIVANT</span>
+            <h1 class="heart-title">CŒUR OUVERT</h1>
+            <p class="heart-subtitle">Immersion cellulaire & survie microscopique</p>
+        </header>
+
+        <div id="heartInteractive" class="heart-interactive" role="button" tabindex="0" aria-label="Cœur humain fermé. Cliquez pour entrer.">
+            <div class="heart-pulse-glow" aria-hidden="true"></div>
+            <div class="heart-scene-container">
+                <svg class="heart-svg" viewBox="0 0 540 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="gradAorta" x1="0%" y1="0%" x2="100%" y2="80%">
+                            <stop offset="0%" stop-color="#dc284c" />
+                            <stop offset="45%" stop-color="#ff4a6e" />
+                            <stop offset="70%" stop-color="#ba1a3a" />
+                            <stop offset="100%" stop-color="#64091b" />
+                        </linearGradient>
+                        <linearGradient id="gradVenaCava" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#24386b" />
+                            <stop offset="50%" stop-color="#3c5b9e" />
+                            <stop offset="100%" stop-color="#141e3d" />
+                        </linearGradient>
+                        <linearGradient id="gradPulmonary" x1="0%" y1="0%" x2="100%" y2="90%">
+                            <stop offset="0%" stop-color="#2b4873" />
+                            <stop offset="50%" stop-color="#466f9e" />
+                            <stop offset="100%" stop-color="#1b2a44" />
+                        </linearGradient>
+                        <radialGradient id="gradMyoLeft" cx="40%" cy="40%" r="65%">
+                            <stop offset="0%" stop-color="#db284f" />
+                            <stop offset="35%" stop-color="#af1435" />
+                            <stop offset="75%" stop-color="#720a20" />
+                            <stop offset="100%" stop-color="#3a040e" />
+                        </radialGradient>
+                        <radialGradient id="gradMyoRight" cx="60%" cy="35%" r="65%">
+                            <stop offset="0%" stop-color="#c92244" />
+                            <stop offset="40%" stop-color="#9a0f2b" />
+                            <stop offset="80%" stop-color="#60081a" />
+                            <stop offset="100%" stop-color="#30030c" />
+                        </radialGradient>
+                        <radialGradient id="gradInnerLight" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+                            <stop offset="25%" stop-color="#ffb6c9" stop-opacity="0.95" />
+                            <stop offset="55%" stop-color="#ff2168" stop-opacity="0.85" />
+                            <stop offset="80%" stop-color="#a6003c" stop-opacity="0.5" />
+                            <stop offset="100%" stop-color="#4d001a" stop-opacity="0" />
+                        </radialGradient>
+                        <filter id="heartBloom" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                            <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                        <filter id="coreGlow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="15" result="glow" />
+                            <feMerge>
+                                <feMergeNode in="glow" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    <!-- Cavité intérieure incandescente (révélée lors de l'ouverture) -->
+                    <g class="heart-inner-core">
+                        <ellipse cx="270" cy="340" rx="135" ry="155" fill="url(#gradInnerLight)" filter="url(#coreGlow)" />
+                        <g class="heart-light-shafts" opacity="0.85">
+                            <polygon points="270,340 180,180 210,170" fill="rgba(255,180,210,0.4)" />
+                            <polygon points="270,340 330,170 360,185" fill="rgba(255,180,210,0.4)" />
+                            <polygon points="270,340 120,290 135,325" fill="rgba(255,130,180,0.35)" />
+                            <polygon points="270,340 405,300 420,335" fill="rgba(255,130,180,0.35)" />
+                            <polygon points="270,340 160,450 190,475" fill="rgba(255,100,160,0.4)" />
+                            <polygon points="270,340 350,455 380,440" fill="rgba(255,100,160,0.4)" />
+                            <polygon points="270,340 250,520 290,520" fill="rgba(255,200,225,0.45)" />
+                        </g>
+                        <g class="heart-inner-anatomy">
+                            <path d="M 210,410 Q 225,380 230,350 Q 220,370 205,420 Z" fill="#68001c" opacity="0.85" />
+                            <path d="M 330,415 Q 315,385 310,355 Q 320,375 335,425 Z" fill="#68001c" opacity="0.85" />
+                            <line x1="230" y1="350" x2="245" y2="310" stroke="#ffebf2" stroke-width="1.6" opacity="0.8" />
+                            <line x1="230" y1="350" x2="255" y2="315" stroke="#ffebf2" stroke-width="1.4" opacity="0.75" />
+                            <line x1="310" y1="355" x2="295" y2="310" stroke="#ffebf2" stroke-width="1.6" opacity="0.8" />
+                            <line x1="310" y1="355" x2="285" y2="315" stroke="#ffebf2" stroke-width="1.4" opacity="0.75" />
+                            <path d="M 235,310 Q 270,295 305,310 Q 270,320 235,310 Z" fill="#fff5f8" opacity="0.7" />
+                        </g>
+                    </g>
+
+                    <!-- Grands vaisseaux supérieurs -->
+                    <g class="heart-great-vessels">
+                        <path d="M 175,70 C 175,70 178,145 185,190 C 195,195 210,195 218,190 C 215,145 212,70 212,70 Z" fill="url(#gradVenaCava)" stroke="#1a2548" stroke-width="2" />
+                        <ellipse cx="193" cy="70" rx="18" ry="7" fill="#304780" stroke="#1a2548" stroke-width="1.5" />
+                        <path d="M 232,185 C 230,135 240,60 300,55 C 360,50 375,115 375,185 C 352,192 335,192 315,185 C 315,140 305,92 280,95 C 255,98 250,140 252,185 Z" fill="url(#gradAorta)" stroke="#4a0815" stroke-width="2.5" />
+                        <path d="M 262,88 L 255,28 C 265,24 275,25 282,29 L 280,85 Z" fill="url(#gradAorta)" stroke="#4a0815" stroke-width="1.5" />
+                        <ellipse cx="268" cy="28" rx="13" ry="5" fill="#f04a6c" />
+                        <path d="M 295,78 L 298,32 C 308,31 316,33 322,35 L 316,76 Z" fill="url(#gradAorta)" stroke="#4a0815" stroke-width="1.5" />
+                        <ellipse cx="310" cy="34" rx="11" ry="4.5" fill="#f04a6c" />
+                        <path d="M 330,86 L 342,42 C 351,43 358,47 364,51 L 348,95 Z" fill="url(#gradAorta)" stroke="#4a0815" stroke-width="1.5" />
+                        <ellipse cx="353" cy="46" rx="10" ry="4.5" fill="#f04a6c" />
+                        <path d="M 245,190 C 255,160 270,128 315,120 C 330,118 340,122 345,128 C 305,140 290,170 282,195 Z" fill="url(#gradPulmonary)" stroke="#16233a" stroke-width="2" />
+                    </g>
+
+                    <!-- Moitié droite du cœur (Vue antérieure gauche) -->
+                    <g class="heart-half-right" id="heartHalfRight">
+                        <path d="M 185,185 C 150,185 130,215 132,255 C 135,275 145,290 160,300 C 175,295 190,285 200,265 C 205,235 200,200 185,185 Z" fill="#9e1330" stroke="#4a0714" stroke-width="2" />
+                        <path d="M 270,195 C 220,205 160,230 138,285 C 115,340 120,405 160,455 C 190,490 230,520 268,542 C 269,450 271,320 270,195 Z" fill="url(#gradMyoRight)" stroke="#4d0514" stroke-width="2.5" />
+                        <path d="M 215,255 Q 185,285 165,340 Q 150,380 162,430" fill="none" stroke="#ff3860" stroke-width="3" stroke-linecap="round" filter="url(#heartBloom)" />
+                        <path d="M 185,285 Q 160,305 145,335" fill="none" stroke="#ff4d72" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M 165,340 Q 185,365 195,400" fill="none" stroke="#ff4d72" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M 172,370 Q 155,395 158,425" fill="none" stroke="#ff5c80" stroke-width="1.4" stroke-linecap="round" />
+                        <path d="M 235,230 Q 210,290 200,360 Q 192,420 215,480" fill="none" stroke="#4868b0" stroke-width="2.2" stroke-linecap="round" opacity="0.85" />
+                        <path d="M 210,290 Q 230,330 235,370" fill="none" stroke="#5a7ac4" stroke-width="1.4" stroke-linecap="round" opacity="0.8" />
+                        <path d="M 155,300 C 140,345 145,395 175,440" fill="none" stroke="rgba(255,180,200,0.3)" stroke-width="6" stroke-linecap="round" />
+                        <path d="M 185,235 C 170,255 165,275 170,295" fill="none" stroke="rgba(255,200,215,0.25)" stroke-width="4" stroke-linecap="round" />
+                    </g>
+
+                    <!-- Moitié gauche du cœur (Vue antérieure droite) -->
+                    <g class="heart-half-left" id="heartHalfLeft">
+                        <path d="M 335,195 C 365,195 390,215 395,245 C 400,270 385,290 368,300 C 352,285 342,260 338,235 C 335,215 332,205 335,195 Z" fill="#a81534" stroke="#4a0714" stroke-width="2" />
+                        <path d="M 270,195 C 271,320 269,450 268,542 C 305,520 355,480 388,435 C 425,380 435,315 415,260 C 395,215 330,198 270,195 Z" fill="url(#gradMyoLeft)" stroke="#4d0514" stroke-width="2.5" />
+                        <path d="M 270,198 Q 274,310 270,410 Q 268,475 268,538" fill="none" stroke="#ff2654" stroke-width="3.6" stroke-linecap="round" filter="url(#heartBloom)" />
+                        <path d="M 272,250 Q 300,275 325,310 Q 345,340 350,380" fill="none" stroke="#ff426e" stroke-width="2.2" stroke-linecap="round" />
+                        <path d="M 271,310 Q 310,340 335,385" fill="none" stroke="#ff426e" stroke-width="2.0" stroke-linecap="round" />
+                        <path d="M 270,370 Q 295,405 315,445" fill="none" stroke="#ff547e" stroke-width="1.6" stroke-linecap="round" />
+                        <path d="M 269,430 Q 285,460 298,490" fill="none" stroke="#ff6890" stroke-width="1.4" stroke-linecap="round" />
+                        <path d="M 275,210 Q 279,315 276,415 Q 273,475 272,530" fill="none" stroke="#3d60a8" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+                        <path d="M 278,270 Q 320,300 355,340" fill="none" stroke="#4d72bc" stroke-width="1.4" stroke-linecap="round" opacity="0.75" />
+                        <path d="M 370,270 C 405,325 398,390 365,445 C 345,475 310,505 285,525" fill="none" stroke="rgba(255,190,210,0.32)" stroke-width="6.5" stroke-linecap="round" />
+                        <path d="M 345,230 C 375,250 385,275 380,305" fill="none" stroke="rgba(255,210,225,0.26)" stroke-width="4.5" stroke-linecap="round" />
+                        <ellipse cx="375" cy="340" rx="16" ry="32" fill="rgba(255,255,255,0.12)" transform="rotate(25 375 340)" />
+                    </g>
+                </svg>
+            </div>
+            <div class="heart-click-prompt">
+                <span class="heart-prompt-pulse" aria-hidden="true"></span>
+                <span class="heart-prompt-text">Cliquez sur le cœur pour entrer</span>
+            </div>
+        </div>
+
+                    <div class="heart-transition-flash" aria-hidden="true"></div>
+    </div>
+
+    <!-- Modale des commandes (accessible depuis le menu principal) -->
+    <div id="heartControlsModal" class="heart-modal" hidden role="dialog" aria-modal="true" aria-labelledby="controlsModalTitle">
+        <div class="heart-modal-card">
+            <div class="modal-header">
+                <h3 id="controlsModalTitle">COMMANDES DU JEU</h3>
+                <button id="closeControlsModalBtn" type="button" class="modal-close-btn" aria-label="Fermer">✕</button>
+            </div>
+            <div class="controls-list">
+                <div class="control-row">
+                    <span class="control-key-badge">ZQSD / WASD / Flèches</span>
+                    <span class="control-label">Déplacement fluide du globule blanc</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-key-badge">Espace</span>
+                    <span class="control-label">Attaque phagocytaire contre les bactéries</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-key-badge">E</span>
+                    <span class="control-label">Bouclier immunitaire protecteur</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-key-badge">Clic gauche</span>
+                    <span class="control-label">Désigner une cible prioritaire aux alliés</span>
+                </div>
+                <div class="control-row">
+                    <span class="control-key-badge">Échap</span>
+                    <span class="control-label">Mettre la simulation en pause</span>
+                </div>
+            </div>
+            <div class="modal-actions" style="display: flex; gap: 0.75rem; margin-top: 1.5rem; justify-content: center;">
+                <button id="modalReturnBtn" type="button" class="heart-btn heart-btn-controls">RETOUR AU MENU</button>
+                <button id="modalStartBtn" type="button" class="heart-btn heart-btn-start">COMMENCER LA PARTIE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Écran 3 : Menu principal -->
+    <div id="mainMenuOverlay" role="dialog" aria-modal="true" aria-labelledby="menuTitle" hidden>
+        <section class="menu-card">
+            <p class="menu-eyebrow">SURVIE CELLULAIRE & BIO-DÉFENSE</p>
+            <h2 id="menuTitle">CŒUR OUVERT</h2>
+            <p class="menu-description">Pilotez votre globule blanc dans l'arène biologique, éliminez les bactéries avec vos alliés et survivez à la menace virale.</p>
+            <div class="menu-actions">
+                <button id="playButton" type="button" class="heart-btn heart-btn-start">COMMENCER LA PARTIE</button>
+                <button id="menuControlsButton" type="button" class="heart-btn heart-btn-controls">COMMANDES</button>
+            </div>
+            <div class="menu-sub-actions" style="margin-top: 1rem;">
+                <button id="menuSettingsButton" type="button" class="menu-link-button">Paramètres avancés & Algorithmes</button>
+            </div>
+            <details class="menu-algorithms">
+                <summary>Informations sur les algorithmes de steering</summary>
+                <p>Le parcours pédagogique du projet conserve Seek / Flee, Pursue / Evade, Arrive, Wander, Path Following, Obstacle Avoidance, Separation, Alignment, Cohesion, Leader Following et la combinaison pondérée des Boids (Craig Reynolds).</p>
+                <p>Dans l'arène, les bactéries combinent poursuite, fuite, perception locale et Boids ; les alliés combattent ou suivent le leader ; le globule rouge suit son chemin vasculaire. Les démonstrations de génétique et de neuro-évolution restent accessibles dans les paramètres.</p>
+            </details>
+        </section>
+    </div>
+
+    <div id="pauseOverlay" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden>
+        <section class="menu-card pause-card">
+            <p class="menu-eyebrow">SIMULATION SUSPENDUE</p>
+            <h2 id="pauseTitle">Pause</h2>
+            <p>La simulation est arrêtée. Reprends quand tu es prêt.</p>
+            <div class="menu-actions">
+                <button id="resumeButton" type="button">Reprendre</button>
+                <button id="pauseMenuButton" type="button">Menu principal</button>
+            </div>
+        </section>
+    </div>
+    <aside id="controlLegend" aria-label="Commandes pendant la partie">
+        <strong>CONTRÔLES</strong>
+        <span>ZQSD / WASD / flèches&nbsp;: bouger</span>
+        <span>Espace&nbsp;: attaquer · E&nbsp;: bouclier</span>
+        <span>Clic bactérie&nbsp;: cible des alliés</span>
+    </aside>
+    <div id="virusAlert" role="status" aria-live="assertive" hidden></div>
+    <div id="gameNotice" role="status" aria-live="polite" hidden></div>
+    <div id="defeatOverlay" role="dialog" aria-modal="true" aria-labelledby="defeatTitle" hidden>
+        <div class="defeat-card">
+            <h2 id="defeatTitle">Fin de partie</h2>
+            <p id="resultMessage"></p>
+            <div class="result-stats">
+                <div class="stat-row"><span>Score final</span><strong id="finalScore">0</strong></div>
+                <div class="stat-row"><span>Temps de survie</span><strong id="survivalTime">00:00</strong></div>
+                <div class="stat-row"><span>Bactéries éliminées</span><strong id="defeatedCount">0</strong></div>
+            </div>
+            <button id="restartButton" type="button">Recommencer</button>
+            <button id="resultMenuButton" type="button">Menu principal</button>
+        </div>
+    </div>
+</body>
+
+</html>
