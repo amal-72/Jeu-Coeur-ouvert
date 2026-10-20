@@ -1,4 +1,4 @@
-﻿const GAME_DIFFICULTY = {
+const GAME_DIFFICULTY = {
     easy: {
         bacteriaCount: 10,
         contactDamage: 6,
@@ -229,11 +229,11 @@ function setup() {
 
     const restartButton = document.getElementById('restartButton');
     if (restartButton) {
-        restartButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
     }
     const restartButtonInline = document.getElementById('restartButtonInline');
     if (restartButtonInline) {
-        restartButtonInline.addEventListener('click', startGame);
+        restartButtonInline.addEventListener('click', restartGame);
     }
     resetGame();
     bindUi();
@@ -981,6 +981,19 @@ function startGame() {
     gamePaused = false;
     updatePauseButton();
     loop();
+}
+
+/**
+ * restartGame — Redémarre une partie depuis l'écran de fin de partie.
+ * startGame() est bloquée par sa garde (!mainMenuOpen && !gamePaused) lorsque
+ * la partie se termine via endGame() : ni mainMenuOpen ni gamePaused ne sont
+ * positionnés à true. On réinitialise ces deux drapeaux avant de déléguer
+ * intégralement à startGame(), qui gère déjà overlays, resetGame() et loop().
+ */
+function restartGame() {
+    gameOver = false;
+    mainMenuOpen = true;
+    startGame();
 }
 
 function returnToMainMenu() {
