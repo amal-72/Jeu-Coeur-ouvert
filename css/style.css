@@ -1103,14 +1103,22 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    padding: clamp(1.2rem, 3.5vh, 2.5rem);
+    justify-content: center;
+    gap: clamp(0.5rem, 2vh, 1.4rem);
+    padding: clamp(0.5rem, 2vh, 1.5rem) 1rem;
     box-sizing: border-box;
     background: radial-gradient(circle at 50% 52%, #1a040e 0%, #0c0207 55%, #030005 100%);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     user-select: none;
     -webkit-user-select: none;
     transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    scrollbar-width: none;
+}
+
+#heartIntroOverlay::-webkit-scrollbar {
+    display: none;
+    width: 0;
 }
 
 #heartIntroOverlay[hidden] {
@@ -1138,35 +1146,36 @@ input[type="range"]::-moz-range-thumb {
     position: relative;
     z-index: 10;
     text-align: center;
-    margin-top: clamp(0.5rem, 2vh, 1.5rem);
+    margin-top: 0;
     transition: transform 0.5s ease, opacity 0.5s ease;
+    flex-shrink: 0;
 }
 
 .heart-eyebrow {
     display: inline-block;
     color: #ff3366;
-    font-size: 0.78rem;
+    font-size: clamp(0.7rem, 1.5vh, 0.78rem);
     font-weight: 800;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.2rem;
     text-shadow: 0 0 12px rgba(255, 51, 102, 0.6);
 }
 
 .heart-title {
     margin: 0;
     color: #ffffff;
-    font-size: clamp(2.4rem, 6.5vw, 4.2rem);
+    font-size: clamp(1.9rem, min(5.5vw, 6vh), 3.4rem);
     font-weight: 900;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.08em;
     line-height: 1.05;
     text-shadow: 0 0 25px rgba(255, 30, 80, 0.75), 0 0 60px rgba(255, 20, 60, 0.35);
 }
 
 .heart-subtitle {
-    margin: 0.45rem 0 0;
+    margin: 0.3rem 0 0;
     color: #f0c5d4;
-    font-size: clamp(0.92rem, 2.2vw, 1.15rem);
+    font-size: clamp(0.85rem, min(2vw, 2.1vh), 1.08rem);
     font-weight: 500;
     letter-spacing: 0.04em;
 }
@@ -1181,8 +1190,10 @@ input[type="range"]::-moz-range-thumb {
     justify-content: center;
     cursor: pointer;
     outline: none;
-    margin: auto 0;
-    padding: 10px;
+    margin: 0;
+    padding: 0.25rem;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .heart-interactive:focus-visible .heart-svg {
@@ -1191,8 +1202,8 @@ input[type="range"]::-moz-range-thumb {
 
 .heart-pulse-glow {
     position: absolute;
-    width: clamp(260px, 50vw, 380px);
-    height: clamp(260px, 50vw, 380px);
+    width: min(360px, 85vw, 48vh);
+    height: min(360px, 85vw, 48vh);
     border-radius: 50%;
     background: radial-gradient(circle, rgba(255, 30, 80, 0.22) 0%, rgba(220, 20, 60, 0.08) 50%, transparent 75%);
     pointer-events: none;
@@ -1203,15 +1214,19 @@ input[type="range"]::-moz-range-thumb {
 .heart-scene-container {
     position: relative;
     z-index: 2;
-    width: clamp(240px, 46vw, 350px);
+    width: min(320px, 72vw, 37.8vh);
+    width: min(320px, 72vw, 37.8dvh);
     height: auto;
     aspect-ratio: 540 / 600;
+    max-height: 42vh;
+    max-height: 42dvh;
     animation: cardiacPulse 1.25s infinite ease-in-out;
     transform-origin: 50% 55%;
     transition: transform 0.25s ease;
 }
 
 .heart-svg {
+    display: block;
     width: 100%;
     height: 100%;
     overflow: visible;
@@ -1256,15 +1271,17 @@ input[type="range"]::-moz-range-thumb {
 .heart-click-prompt {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.65rem;
-    margin-top: 1.1rem;
-    padding: 0.65rem 1.45rem;
+    margin-top: clamp(0.5rem, 1.8vh, 1rem);
+    padding: clamp(0.4rem, 1.2vh, 0.65rem) clamp(0.9rem, 2.5vw, 1.4rem);
     border: 1px solid rgba(255, 70, 110, 0.5);
     border-radius: 2rem;
-    background: rgba(38, 7, 20, 0.78);
+    background: rgba(38, 7, 20, 0.82);
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 22px rgba(255, 20, 65, 0.28), 0 0 10px rgba(255, 45, 95, 0.2);
     transition: transform 0.4s ease, opacity 0.4s ease, border-color 0.3s ease;
+    flex-shrink: 0;
 }
 
 .heart-interactive:hover .heart-click-prompt {
@@ -1284,11 +1301,12 @@ input[type="range"]::-moz-range-thumb {
 
 .heart-prompt-text {
     color: #fff0f5;
-    font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+    font-size: clamp(0.85rem, min(2vw, 2vh), 1.05rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-shadow: 0 0 8px rgba(255, 80, 120, 0.5);
     display: inline-block;
+    white-space: nowrap;
     animation: heartPromptPulse 2.2s ease-in-out infinite;
 }
 
@@ -1880,6 +1898,23 @@ input[type="range"]::-moz-range-thumb {
 
 /* Adaptation aux écrans d'ordinateur portable et fenêtres de hauteur réduite */
 @media (max-height: 760px) {
+    #heartIntroOverlay {
+        gap: clamp(0.35rem, 1.5vh, 0.8rem);
+        padding: clamp(0.4rem, 1.5vh, 0.9rem) 0.75rem;
+    }
+    .heart-scene-container {
+        width: min(290px, 70vw, 36vh);
+        width: min(290px, 70vw, 36dvh);
+        max-height: 40vh;
+        max-height: 40dvh;
+    }
+    .heart-click-prompt {
+        margin-top: clamp(0.35rem, 1.4vh, 0.7rem);
+        padding: 0.38rem 0.95rem;
+    }
+    .heart-prompt-text {
+        font-size: clamp(0.8rem, 1.8vh, 0.92rem);
+    }
     .menu-card {
         padding: 1.15rem 1.4rem;
     }
@@ -1899,5 +1934,36 @@ input[type="range"]::-moz-range-thumb {
     }
     .heart-modal-card {
         padding: 1.25rem;
+    }
+}
+
+@media (max-height: 560px) {
+    #heartIntroOverlay {
+        gap: 0.25rem;
+        padding: 0.3rem 0.5rem;
+    }
+    .heart-eyebrow {
+        font-size: 0.65rem;
+        margin-bottom: 0.1rem;
+    }
+    .heart-title {
+        font-size: 1.55rem;
+    }
+    .heart-subtitle {
+        font-size: 0.78rem;
+        margin-top: 0.15rem;
+    }
+    .heart-scene-container {
+        width: min(230px, 65vw, 33vh);
+        width: min(230px, 65vw, 33dvh);
+        max-height: 36vh;
+        max-height: 36dvh;
+    }
+    .heart-click-prompt {
+        margin-top: 0.3rem;
+        padding: 0.3rem 0.8rem;
+    }
+    .heart-prompt-text {
+        font-size: 0.78rem;
     }
 }
